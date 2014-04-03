@@ -107,15 +107,15 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
         for completed_job in thread_pool.get_result():
             (job, result) = completed_job
             if result is not None:
-                (result_type, ssl_cipher, keysize, msg) = result
-                (result_dicts[result_type])[ssl_cipher] = (msg, keysize)
+                (result_type, ssl_cipher, keysize, ssl_strength, msg) = result
+                (result_dicts[result_type])[ssl_cipher] = (msg, keysize, ssl_strength)
 
         # Store thread pool errors
         for failed_job in thread_pool.get_error():
             (job, exception) = failed_job
             ssl_cipher = str(job[1][2])
             error_msg = str(exception.__class__.__name__) + ' - ' + str(exception)
-            result_dicts['errors'][ssl_cipher] = (error_msg, None)
+            result_dicts['errors'][ssl_cipher] = (error_msg, None, None)
 
         thread_pool.join()
 
@@ -132,6 +132,7 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
         cipherFormat = '                 {0:<32}{1:<35}'.format
         titleFormat =  '      {0:<32} '.format
         keysizeFormat = '{0:<30}{1:<14}'.format
+        strengthFormat = '{0:<30}{1:<8}'.format
 
         txtTitle = self.PLUGIN_TITLE_FORMAT(sslVersion.upper() + ' Cipher Suites')
         txtOutput = []
@@ -161,9 +162,12 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
                 txtOutput.append(titleFormat(resultTitle))
 
                 # Add one line for each ciphers
-                for (cipherTxt, (msg, keysize)) in result_list:
+                for (cipherTxt, (msg, keysize, ssl_strength)) in result_list:
                     if keysize:
                         cipherTxt = keysizeFormat(cipherTxt, keysize)
+
+                    if ssl_strength:
+                        cipherTxt = strengthFormat(cipherTxt, ssl_strength)
 
                     txtOutput.append(cipherFormat(cipherTxt, msg))
         if txtOutput == []:
@@ -189,10 +193,12 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
                                  key=lambda (k,v): (k,v), reverse=False)
 
             # Add one element for each ciphers
-            for (sslCipher, (msg, keysize)) in resultList:
+            for (sslCipher, (msg, keysize, ssl_strength)) in resultList:
                 cipherXmlAttr = {'name' : sslCipher, 'connectionStatus' : msg}
                 if keysize:
                     cipherXmlAttr['keySize'] = keysize
+                if ssl_strength:
+                    cipherXmlAttr['strength'] = ssl_strength
                 cipherXml = Element('cipherSuite', attrib = cipherXmlAttr)
 
                 xmlNode.append(cipherXml)
@@ -215,7 +221,7 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
             sslConn.connect()
 
         except SSLHandshakeRejected as e:
-            return 'rejectedCipherSuites', ssl_cipher, None, str(e)
+            return 'rejectedCipherSuites', ssl_cipher, None, None, str(e)
 
         except:
             raise
@@ -226,9 +232,11 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
                 keysize = 'Anon' # Anonymous, let s not care about the key size
             else:
                 keysize = str(sslConn.get_current_cipher_bits()) + ' bits'
+ 
+            ssl_strength = sslConn.get_current_cipher_strength()
 
             status_msg = sslConn.post_handshake_check()
-            return 'acceptedCipherSuites', ssl_cipher, keysize, status_msg
+            return 'acceptedCipherSuites', ssl_cipher, keysize, ssl_strength, status_msg
 
         finally:
             sslConn.close()
@@ -250,8 +258,10 @@ class PluginOpenSSLCipherSuites(PluginBase.PluginBase):
             else:
                 keysize = str(sslConn.get_current_cipher_bits())+' bits'
 
+            ssl_strength = sslConn.get_current_cipher_strength()
+
             status_msg = sslConn.post_handshake_check()
-            return 'preferredCipherSuite', ssl_cipher, keysize, status_msg
+            return 'preferredCipherSuite', ssl_cipher, keysize, ssl_strength, status_msg
 
         except:
             return None
