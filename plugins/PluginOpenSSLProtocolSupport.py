@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 #-------------------------------------------------------------------------------
-# Name:         PluginCompression.py
-# Purpose:      Tests the server for Zlib compression support.
+# Name:         PluginOpenSSLProtocolSupport.py
+# Purpose:      Tests the server for supported SSL / TLS versions.
 #
-# Author:       tritter, alban
+# Author:       bcyrill
 #
-# Copyright:    2012 SSLyze developers
+# Copyright:    2014 SSLyze developers
 #
 #   SSLyze is free software: you can redistribute it and/or modify
 #   it under the terms of the GNU General Public License as published by
